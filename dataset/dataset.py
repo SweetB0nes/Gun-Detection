@@ -13,23 +13,17 @@ from dataset.augmentations import transforms
 
 
 class DetectionDataset(Dataset):
-    def __init__(self, 
-                 dir_path,  
-                 classes,
-                 transforms=None,
-                 cell=8):
-        
+    def __init__(self, dir_path, classes, transforms=None, cell=8):
         self.transforms = transforms
         self.dir_path = dir_path
         self.classes = classes
         self.cell = cell
         
-        # получение путей всех изображений в отсортированном порядке
-        self.image_paths = glob.glob(f"{self.dir_path}/images/*.jpg")
+        # Получение путей всех изображений в отсортированном порядке
+        self.image_paths = glob.glob(f"{self.dir_path}/images/*.jpeg")
 
-        # получение только названий файлов в отсортированном порядке
-        self.all_images = [
-            image_path.split(os.path.sep)[-1] for image_path in self.image_paths]
+        # Получение только названий файлов в отсортированном порядке
+        self.all_images = [image_path.split(os.path.sep)[-1] for image_path in self.image_paths]
         self.all_images = sorted(self.all_images)
 
 
@@ -49,26 +43,34 @@ class DetectionDataset(Dataset):
         image_width = image.shape[1]
         image_height = image.shape[0]
 
-        annot_filename = image_name[:-4] + '.txt'
+        annot_filename = image_name[:-5] + '.txt'
         annot_file_path = os.path.join(self.dir_path, 'labels', annot_filename)
 
         with open(annot_file_path) as fin:
-            lines = fin.readlines()
-            num_objects = int(lines[0].strip())  
             bboxes = {'bboxes': [], 'labels': []}
-            for line in lines[1:num_objects + 1]:  
-                line = line.split()
-                label, x, y, w, h = int(line[0]), float(line[1]), float(line[2]), float(line[3]), float(line[4])
-
-                cords = np.array([x - w/2, y - h/2, x + w/2, y + h/2])
-                cords = np.clip(cords, 0, 1)
-
-                cords[[0, 2]] = np.sort(cords[[0, 2]]) * image_width
-                cords[[1, 3]] = np.sort(cords[[1, 3]]) * image_height
-
-                if self.classes[label] in ['gun']:
+            
+            # Пропускаем первую строку, так как она содержит количество меток
+            num_labels = int(fin.readline().strip())
+            
+            # Читаем координаты ограничивающих рамок
+            for line in fin:
+                line = line.strip().split()
+                if len(line) == 4:
+                    x_min, y_min, x_max, y_max = map(int, line)
+                    
+                    # Преобразуем координаты в формат [x_min, y_min, x_max, y_max]
+                    cords = np.array([x_min, y_min, x_max, y_max])
+                    
+                    # Преобразуем координаты в доли от ширины и высоты изображения
+                    cords[[0, 2]] = cords[[0, 2]] / image_width
+                    cords[[1, 3]] = cords[[1, 3]] / image_height
+                    
+                    # Убеждаемся, что координаты находятся в пределах [0, 1]
+                    cords = np.clip(cords, 0, 1)
+                    
+                    # Добавляем ограничивающие рамки и метки в список
                     bboxes['bboxes'].append(cords)
-                    bboxes['labels'].append(label)
+                    bboxes['labels'].append(0)  # Здесь можно указать правильный label при необходимости
 
         return bboxes
 

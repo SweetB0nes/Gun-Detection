@@ -1,7 +1,7 @@
 import torchvision
 import torch 
 
-class RetinaRehead(torch.nn.module):
+class RetinaRehead(torch.nn.Module):
     def __init__(self) -> None:
         super().__init__()
         self.model = torchvision.models.detection.retinanet_resnet50_fpn_v2(weights='DEFAULT')
